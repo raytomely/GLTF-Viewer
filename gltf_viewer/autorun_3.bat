@@ -1,0 +1,1 @@
+bin\Release\gltf_viewer.exe models\Agumon\M003AGUM.gltf 3

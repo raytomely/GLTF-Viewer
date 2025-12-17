@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="gltf_viewer" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Release">
+				<Option output="bin/Release/gltf_viewer" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-std=c++11" />
+					<Add directory="C:/c_code/SDL/projects/gltf_viewer" />
+					<Add directory="C:/c_code/SDL/projects/gltf_viewer/gltf_loader" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+					<Add library="opengl32" />
+					<Add library="glu32" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add directory="C:/Program Files/CodeBlocks/SDL-1.2.15/include" />
+		</Compiler>
+		<Linker>
+			<Add library="mingw32" />
+			<Add library="SDLmain" />
+			<Add library="SDL.dll" />
+			<Add library="user32" />
+			<Add library="gdi32" />
+			<Add library="winmm" />
+			<Add library="dxguid" />
+			<Add directory="C:/Program Files/CodeBlocks/SDL-1.2.15/lib" />
+		</Linker>
+		<Unit filename="gltf_loader/camera.h" />
+		<Unit filename="gltf_loader/cgltf.h" />
+		<Unit filename="gltf_loader/filesystem.h" />
+		<Unit filename="gltf_loader/glad.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="gltf_loader/glad.h" />
+		<Unit filename="gltf_loader/gltf_loader.h" />
+		<Unit filename="gltf_loader/khrplatform.h" />
+		<Unit filename="gltf_loader/root_directory.h" />
+		<Unit filename="gltf_loader/shader_s.h" />
+		<Unit filename="gltf_loader/stb_image.h" />
+		<Unit filename="main.cpp" />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

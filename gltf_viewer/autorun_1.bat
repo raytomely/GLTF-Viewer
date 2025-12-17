@@ -1,0 +1,1 @@
+bin\Release\gltf_viewer.exe models\Agumon\AGUM.gltf 1

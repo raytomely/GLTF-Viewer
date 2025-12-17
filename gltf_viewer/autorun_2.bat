@@ -1,0 +1,1 @@
+bin\Release\gltf_viewer.exe models\WarGreymon\213WGRE.gltf 2
