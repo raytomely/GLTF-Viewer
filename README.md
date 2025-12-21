@@ -5,7 +5,11 @@ a gltf model viewer
 
 
 
-https://github.com/user-attachments/assets/d02a86f6-b96b-48ca-8aca-154a9e62d1d6
+## How to use  it
+to use the program, run the following command line:
 
+```sh
+gltf_viewer.exe file_name [model_version:(1,2,3)]
+```
 
 
