@@ -6,8 +6,12 @@ a gltf model viewer
 ## How to use  it
 to use the program, run the following command line:
 
-``sh
+```sh
 gltf_viewer.exe file_name [model_version:(1,2,3)]
 ---
 
+
+```sh
+Happy gaming !
+```
 
