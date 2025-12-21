@@ -1,20 +1,25 @@
 #include <SDL/SDL.h>
-#include "glad.h"
+#include "glad_compat.h"
 
 #include "gltf_loader/gltf_loader.h"
 
-#include "gltf_loader/shader_s.h"
 #include "gltf_loader/camera.h"
 #include "gltf_loader/filesystem.h"
 
-#include <iostream>
+//#include <iostream>
+
+// ******* IMPORTANT ******* //
+// for this to work comment the call "setup_mesh(data)"
+// in function "load_mesh" in "gltf_loader.h" file
+// also don't forget "glad_compat.c" file
 
 
 void processInput(void);
 void sleep(void);
-void dw1_model_transform(Shader *shader);
-void dw2_model_transform(Shader *shader);
-void dw3_model_transform(Shader *shader);
+void draw_model_2(Model_Data* model, glm::mat4& model_view_matrix);
+glm::mat4 dw1_model_transform(void);
+glm::mat4 dw2_model_transform(void);
+glm::mat4 dw3_model_transform(void);
 
 int animation_index = 0;
 int animations_count;
@@ -50,7 +55,7 @@ int main(int argc, char *argv[])
     // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
     {
-        std::cout << "Failed to initialize GLAD" << std::endl;
+        printf("Failed to initialize GLAD \n");
         return -1;
     }
 
@@ -71,7 +76,7 @@ int main(int argc, char *argv[])
     if(argc > 1)
         model_file = argv[1];
 
-    void (*model_transform)(Shader *shader) = dw1_model_transform;
+    glm::mat4 (*model_transform)(void) = dw1_model_transform;
 
     if(argc > 2 && isdigit(argv[2][0]))
     {
@@ -116,12 +121,12 @@ int main(int argc, char *argv[])
 
 
 
-    // build and compile our shader zprogram
-    // ------------------------------------
-    Shader ourShader("gltf_loader/shaders/model.vs", "gltf_loader/shaders/model.fs");
-
     // uncomment this call to draw in wireframe polygons.
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+    // Enable Vertex Arrays
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
     // render loop
     // -----------
@@ -150,22 +155,24 @@ int main(int argc, char *argv[])
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // activate shader
-        ourShader.use();
-
-        // pass projection matrix to shader (note that in this case it could change every frame)
+        // pass projection matrix (note that in this case it could change every frame)
         glm::mat4 projection_mat = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        ourShader.setMat4("projection", projection_mat);
+        glMatrixMode(GL_PROJECTION); //glLoadIdentity();
+        glLoadMatrixf(&projection_mat[0][0]);
 
         // camera/view transformation
         glm::mat4 view_mat = camera.GetViewMatrix();
-        ourShader.setMat4("view", view_mat);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadMatrixf(&view_mat[0][0]);
 
         // calculate the model matrix for each object and pass it to shader before drawing
-        model_transform(&ourShader);
+        glm::mat4 model_mat = model_transform(); // make sure to initialize matrix to identity matrix first
+        glMultMatrixf(&model_mat[0][0]);
+
+        glm::mat4 model_view_matrix = view_mat * model_mat;
 
         // render model
-        draw_model(model, ourShader.ID);
+        draw_model_2(model, model_view_matrix);
 
         SDL_GL_SwapBuffers();
         sleep();
@@ -173,7 +180,6 @@ int main(int argc, char *argv[])
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
-    glDeleteProgram(ourShader.ID);
 
     //free_model_animation(animation);
     free_model(model);
@@ -294,29 +300,50 @@ void sleep(void)
     }
 }
 
-void dw1_model_transform(Shader *shader)
+void draw_model_2(Model_Data* model, glm::mat4& model_view_matrix)
+{
+    Mesh_Data* mesh;
+    glColor3ub(255,255,255);
+    // bind textures on corresponding texture units
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, model->texture);
+    glMatrixMode(GL_MODELVIEW);
+    // render model
+    for (unsigned int i = 0; i < model->meshes_count; i++)
+    {
+        mesh = model->meshes[i];
+        glVertexPointer(3, GL_FLOAT, 3*sizeof(GLfloat), (GLfloat*)mesh->vertices);
+        glTexCoordPointer(2, GL_FLOAT, 2*sizeof(GLfloat), (GLfloat*)mesh->texcoord);
+        glLoadMatrixf(&model_view_matrix[0][0]);
+        glMultMatrixf(&mesh->bone_matrix[0][0]);
+        glDrawArrays(GL_TRIANGLES, 0, mesh->vertices_count);
+    }
+    glDisable(GL_TEXTURE_2D);
+}
+
+glm::mat4 dw1_model_transform(void)
 {
     glm::mat4 model_mat = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
     model_mat = glm::translate(model_mat, glm::vec3(10.0f, 3.0f, 20.0f)); // translate it down so it's at the center of the scene
     model_mat = glm::scale(model_mat, glm::vec3(0.02f, 0.02f, 0.02f));
     model_mat = glm::rotate(model_mat, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     model_mat = glm::rotate(model_mat, glm::radians(210.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "model"), 1, GL_FALSE, &model_mat[0][0]);
+    return model_mat;
 }
 
-void dw2_model_transform(Shader *shader)
+glm::mat4 dw2_model_transform(void)
 {
     glm::mat4 model_mat = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
     model_mat = glm::translate(model_mat, glm::vec3(10.0f, -20.0f, -40.0f)); // translate it down so it's at the center of the scene
     model_mat = glm::scale(model_mat, glm::vec3(0.02f, 0.02f, 0.02f));
-    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "model"), 1, GL_FALSE, &model_mat[0][0]);
+    return model_mat;
 }
 
-void dw3_model_transform(Shader *shader)
+glm::mat4 dw3_model_transform(void)
 {
     glm::mat4 model_mat = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
     model_mat = glm::translate(model_mat, glm::vec3(10.0f, 3.0f, 20.0f)); // translate it down so it's at the center of the scene
     model_mat = glm::rotate(model_mat, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     model_mat = glm::rotate(model_mat, glm::radians(210.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "model"), 1, GL_FALSE, &model_mat[0][0]);
+    return model_mat;
 }

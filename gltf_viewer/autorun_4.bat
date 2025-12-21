@@ -1,0 +1,1 @@
+bin\Release\gltf_viewer.exe models\Puppetmon\231PINO.gltf 2
