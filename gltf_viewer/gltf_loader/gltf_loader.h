@@ -47,6 +47,9 @@ typedef struct
     glm::mat4 bone_matrix;
 }Mesh_Data;
 
+typedef struct Animation_Data Animation_Data;
+typedef glm::mat4 (*Interpolate_Animation)(Animation_Data*, float);
+
 typedef struct Animation_Node
 {
     Mesh_Data* mesh;
@@ -55,16 +58,20 @@ typedef struct Animation_Node
     glm::mat4 global_transform;
     Animation_Node* parent;
 	Animation_Node** children;
+	Animation_Data* trans_anim;
+	Animation_Data* rot_anim;
+	Animation_Data* scale_anim;
 	unsigned int children_count;
 }Animation_Node;
 
-typedef struct
+typedef struct Animation_Data
 {
     int type;
     int count;
     float *time;
     float *trs;
     Animation_Node* target_node;
+    Interpolate_Animation interpolate_animation;
 }Animation_Data;
 
 typedef struct
@@ -145,10 +152,10 @@ float* read_accessor(cgltf_accessor* accessor)
 unsigned int* read_indices(cgltf_accessor* accessor)
 {
     size_t available_numbers = index_count(accessor);
-    printf("available_numbers=%d\n",available_numbers);
+    //printf("available_numbers=%d\n",available_numbers);
     int mem_size = cgltf_accessor_unpack_indices(accessor, NULL, sizeof(int), available_numbers) * sizeof(int);
     unsigned int* index_buffer = (unsigned int*)malloc(mem_size);
-    cgltf_accessor_unpack_indices(accessor, index_buffer, sizeof(int), available_numbers);
+    //cgltf_accessor_unpack_indices(accessor, index_buffer, sizeof(int), available_numbers);
     printf("indices_mem_size=%d\n",mem_size);
     return index_buffer;
 }
@@ -494,6 +501,10 @@ void print_trs(cgltf_node* node)
     else printf("node has no scale \n");
 }
 
+glm::mat4 interpolate_position(Animation_Data* anim_data, float animation_time);
+glm::mat4 interpolate_rotation(Animation_Data* anim_data, float animation_time);
+glm::mat4 interpolate_scaling(Animation_Data* anim_data, float animation_time);
+
 Animation_Data* read_animation_data(cgltf_animation_channel* channel)
 {
     Animation_Data* data = (Animation_Data*)malloc(sizeof(Animation_Data));
@@ -501,6 +512,18 @@ Animation_Data* read_animation_data(cgltf_animation_channel* channel)
     data->count = channel->sampler->input->count;
     data->time = read_accessor(channel->sampler->input);
     data->trs = read_accessor(channel->sampler->output);
+    switch(data->type)
+    {
+        case cgltf_animation_path_type_translation:
+            data->interpolate_animation = interpolate_position;
+            break;
+        case cgltf_animation_path_type_rotation:
+            data->interpolate_animation = interpolate_rotation;
+            break;
+        case cgltf_animation_path_type_scale:
+            data->interpolate_animation = interpolate_scaling;
+            break;
+    }
     return data;
 }
 
@@ -1057,6 +1080,7 @@ Animation_Node* load_animation_node(cgltf_node* gltf_node, cgltf_data* gltf_data
     anim_node->children = (Animation_Node**)malloc(sizeof(Animation_Node*) * gltf_node->children_count);
     anim_node->trs.trans = anim_node->trs.rot = anim_node->trs.scale = glm::mat4(1.0f);
     anim_node->local_transform = anim_node->global_transform = glm::mat4(1.0f);
+    anim_node->trans_anim = anim_node->rot_anim = anim_node->scale_anim = NULL;
     return anim_node;
 }
 
@@ -1221,6 +1245,7 @@ Model_Data* load_gltf_model(char* model_file)
 void draw_model(Model_Data* model, unsigned int shader_id)
 {
     Mesh_Data* mesh;
+    unsigned int bone_matrix_location = glGetUniformLocation(shader_id, "bone_matrix");
     // bind textures on corresponding texture units
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, model->texture);
@@ -1228,10 +1253,13 @@ void draw_model(Model_Data* model, unsigned int shader_id)
     for (unsigned int i = 0; i < model->meshes_count; i++)
     {
         mesh = model->meshes[i];
-        glUniformMatrix4fv(glGetUniformLocation(shader_id, "bone_matrix"), 1, GL_FALSE, &mesh->bone_matrix[0][0]);
+        glUniformMatrix4fv(bone_matrix_location, 1, GL_FALSE, &mesh->bone_matrix[0][0]);
         glBindVertexArray(mesh->VAO);
         glDrawArrays(GL_TRIANGLES, 0, mesh->vertices_count);
     }
+    // always good practice to set everything back to defaults once configured.
+    //glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(0);
 }
 
 void interpolate_node_animation(Animation_Node* node, Animation_Data* anim_data, float currrent_time)
@@ -1291,17 +1319,66 @@ void update_animation_frame(Model_Data* model, Model_Animation* animation, float
     }
 }
 
+void update_animation_frame_2(Model_Data* model, float currrent_time)
+{
+    Animation_Node* anim_node;
+    TRS_Transform* trs;
+    for(int i = 0; i < model->anim_nodes_count; i++)
+    {
+        anim_node = model->anim_nodes[i];
+        trs = &anim_node->trs;
+        if(anim_node->trans_anim)
+            trs->trans =  anim_node->trans_anim->interpolate_animation(anim_node->trans_anim, currrent_time);
+        if(anim_node->rot_anim)
+            trs->rot =  anim_node->rot_anim->interpolate_animation(anim_node->rot_anim, currrent_time);
+        if(anim_node->scale_anim)
+            trs->scale =  anim_node->scale_anim->interpolate_animation(anim_node->scale_anim, currrent_time);
+        anim_node->local_transform = trs->trans * trs->rot * trs->scale;
+        if(anim_node->parent != NULL)
+            anim_node->global_transform = anim_node->parent->global_transform * anim_node->local_transform;
+        else
+            anim_node->global_transform = anim_node->local_transform;
+        if(anim_node->mesh != NULL)
+            anim_node->mesh->bone_matrix = anim_node->global_transform;
+    }
+}
+
 void update_skeletal_animation(Model_Data* model, float delta_time)
 {
     model->animation_time += (delta_time / 1000);
     model->animation_time = fmod(model->animation_time, model->curren_animation->duration);
     update_animation_frame(model, model->curren_animation, model->animation_time);
+    //update_animation_frame_2(model, model->animation_time);
+}
+
+void load_animation_data(Model_Animation* animation)
+{
+    Animation_Data* anim_data;
+    for(int i = 0; i < animation->anim_data_count; i++)
+    {
+        anim_data = animation->anim_data[i];
+        switch(anim_data->type)
+        {
+            case cgltf_animation_path_type_translation:
+                anim_data->target_node->trans_anim =  anim_data;
+                break;
+            case cgltf_animation_path_type_rotation:
+                anim_data->target_node->rot_anim =  anim_data;
+                break;
+            case cgltf_animation_path_type_scale:
+                anim_data->target_node->scale_anim =  anim_data;
+                break;
+        }
+    }
 }
 
 void change_model_animation(Model_Data* model, int animation_index)
 {
     if(animation_index >= 0 && animation_index <  model->animations_count)
+    {
         model->curren_animation = model->animations[animation_index];
+        //load_animation_data(model->animations[animation_index]);
+    }
     model->animation_time = 0.0;
 }
 

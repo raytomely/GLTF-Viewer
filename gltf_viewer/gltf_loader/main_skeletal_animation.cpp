@@ -113,12 +113,6 @@ int main(int argc, char *argv[])
     // ------------------------------------
     Shader ourShader("gltf_loader/shaders/model.vs", "gltf_loader/shaders/model.fs");
 
-    // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
-    // -------------------------------------------------------------------------------------------
-    ourShader.use();
-    ourShader.setInt("texture1", 0);
-    ourShader.setInt("texture2", 1);
-
     // uncomment this call to draw in wireframe polygons.
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
