@@ -10,4 +10,5 @@ to use the program, run the following command line:
 gltf_viewer.exe file_name [model_version:(1,2,3)]
 ```
 where file_name is the gltf model file name, and model_version is the model version, which should be 1, 2 or 3.
+
 model_version parameter is optional, but important for positioning the model correctly.
