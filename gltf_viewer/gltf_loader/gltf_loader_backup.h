@@ -1020,6 +1020,27 @@ void free_model_animation(Model_Animation* model_anim)
     free(model_anim);  model_anim = NULL;
 }
 
+void load_animation_data(Model_Animation* animation)
+{
+    Animation_Data* anim_data;
+    for(int i = 0; i < animation->anim_data_count; i++)
+    {
+        anim_data = animation->anim_data[i];
+        switch(anim_data->type)
+        {
+            case cgltf_animation_path_type_translation:
+                anim_data->target_node->trans_anim =  anim_data;
+                break;
+            case cgltf_animation_path_type_rotation:
+                anim_data->target_node->rot_anim =  anim_data;
+                break;
+            case cgltf_animation_path_type_scale:
+                anim_data->target_node->scale_anim =  anim_data;
+                break;
+        }
+    }
+}
+
 void print_animation_data_2(Animation_Data* data)
 {
     char* animation_type[5] = {"invalid", "translation", "rotation", "scale", "weights"};
@@ -1189,6 +1210,7 @@ Model_Data* load_model(cgltf_data* gltf_data, cgltf_options* options)
         model->animations[i] = load_model_animation(&gltf_data->animations[i], gltf_data->nodes, model->anim_nodes);
     }
     model->curren_animation = model->animations[0];
+    load_animation_data(model->curren_animation);
     model->animation_time = 0.0;
     return model;
 }
@@ -1349,27 +1371,6 @@ void update_skeletal_animation(Model_Data* model, float delta_time)
     model->animation_time = fmod(model->animation_time, model->curren_animation->duration);
     update_animation_frame(model, model->curren_animation, model->animation_time);
     //update_animation_frame_2(model, model->animation_time);
-}
-
-void load_animation_data(Model_Animation* animation)
-{
-    Animation_Data* anim_data;
-    for(int i = 0; i < animation->anim_data_count; i++)
-    {
-        anim_data = animation->anim_data[i];
-        switch(anim_data->type)
-        {
-            case cgltf_animation_path_type_translation:
-                anim_data->target_node->trans_anim =  anim_data;
-                break;
-            case cgltf_animation_path_type_rotation:
-                anim_data->target_node->rot_anim =  anim_data;
-                break;
-            case cgltf_animation_path_type_scale:
-                anim_data->target_node->scale_anim =  anim_data;
-                break;
-        }
-    }
 }
 
 void change_model_animation(Model_Data* model, int animation_index)
